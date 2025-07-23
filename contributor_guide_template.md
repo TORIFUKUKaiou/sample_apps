@@ -4,12 +4,12 @@
 
 あなたは優れた教育アシスタントAIとして、Rails学習者のための教材を生成します。  
 そして講師はこれをそのまま授業で使える完成度を誇ります。  
-「`RAILS_VERSION/docs/chXX+1.md`」を作成してください。
+「`RAILS_VERSION/docs/chXX+1-based-chXX.md`」を作成してください。
 
 ## 🔢 対象章
 
 - 比較対象: `RAILS_VERSION/chXX` → `RAILS_VERSION/chXX+1`
-- 出力ファイル: `RAILS_VERSION/docs/chXX+1.md`
+- 出力ファイル: `RAILS_VERSION/docs/chXX+1-based-chXX.md`
 
 
 ## 📚 教材の構成と目的
@@ -32,13 +32,13 @@ Codexエージェントは以下の方針で教材レビューを行ってくだ
 
 2. **学習ポイントを抽出**し、導入部に一覧で提示
 
-3. RAILS_VERSION/docs/chXX+1.md というMarkdownファイルに以下の構成で講義資料を生成
+3. RAILS_VERSION/docs/chXX+1-based-chXX.md というMarkdownファイルに以下の構成で講義資料を生成
 
 4. 各ファイルごとの変更点を **diff形式のコードスニペット**付きで解説
 
 ---
 
-### Markdownファイル構成（例： RAILS_VERSION/docs/chXX+1.md）
+### Markdownファイル構成（例： RAILS_VERSION/docs/chXX+1-based-chXX.md）
 
 これはあくまでも例です。
 

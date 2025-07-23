@@ -14,7 +14,7 @@ NEXT_PADDED=$(printf "%02d" "$NEXT")
 
 # === パス構成 ===
 DOCS_DIR="${RAILS_VERSION}/docs"
-OUT_FILE="${DOCS_DIR}/ch${NEXT_PADDED}_agent.md"
+OUT_FILE="${DOCS_DIR}/ch${NEXT_PADDED}_based_ch${PREV_PADDED}_agent.md"
 TITLE_FILE="${DOCS_DIR}/ch${NEXT_PADDED}_title.txt"
 
 # === 雛形ファイル存在チェック ===
