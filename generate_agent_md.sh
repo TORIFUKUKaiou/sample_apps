@@ -34,8 +34,9 @@ mkdir -p "$DOCS_DIR"
 
 # === ファイル生成 ===
 {
-  sed -e "s/^# chXXX 講義資料$/# ch${NEXT_PADDED} ${CHAPTER_TITLE}/" \
+  sed -e "s/^# chXXX 講義資料/# ch${NEXT_PADDED} ${CHAPTER_TITLE}/" \
       -e "s/「第XXX章が完了したアプリケーション状態」/「第${NEXT_PADDED}章が完了したアプリケーション状態」/" \
+      -e "s/「CHAPTER_TITLE」/「${CHAPTER_TITLE}」/" \
       -e "s/chXX+1/ch${NEXT_PADDED}/g" \
       -e "s/chXX/ch${PREV_PADDED}/g" \
       -e "s/RAILS_VERSION/${RAILS_VERSION}/g" \

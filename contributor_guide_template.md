@@ -44,11 +44,12 @@ Codexエージェントは以下の方針で教材レビューを行ってくだ
 
 ````markdown
 
-# chXXX 講義資料　（from chXX）
+# chXXX 講義資料　 （from chXX）
 
 ## 🔥 はじめに：本章で越えるべき山
 
 この章では、「CHAPTER_TITLE」を学習します。  
+...
 
 ## ✅ 学習ポイント一覧
 
