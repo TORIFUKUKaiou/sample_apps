@@ -349,7 +349,35 @@ edit_password_reset_url(@user.reset_token, email: @user.email)
  </p>
 ```
 
-同様にテキストメール(`password_reset.text.erb`)も更新されています。
+### app/views/user_mailer/password_reset.text.erb
+
+#### 🎯 概要
+HTML版に対応するテキスト形式のパスワードリセットメールテンプレートです。メールクライアントの互換性確保のために必要です。
+
+#### 🧠 解説
+シンプルなテキスト形式でパスワードリセットメールを実装しました。
+
+**テキストメールの重要性**：
+- **互換性**: 古いメールクライアントやテキスト専用設定への対応
+- **アクセシビリティ**: スクリーンリーダーや視覚障害者への配慮
+- **セキュリティ**: 企業環境でHTMLメールが無効化されている場合への対応
+
+**設計のポイント**：
+- **明確な説明**: HTMLリンクがないため、URLの目的を明確に説明
+- **コピー&ペースト対応**: URLを手動でコピーできる形式
+- **セキュリティ注意事項**: 意図しないリクエストへの対処方法を明記
+- **期限告知**: "This link will expire in two hours." で緊急性を促す
+
+```erb
+To reset your password click the link below:
+
+<%= edit_password_reset_url(@user.reset_token, email: @user.email) %>
+
+This link will expire in two hours.
+
+If you did not request your password to be reset, please ignore this email and
+your password will stay as it is.
+```
 
 ### app/views/password_resets/new.html.erb
 
@@ -514,6 +542,44 @@ UserMailerのパスワード再設定メール送信機能をテストします�
 +    assert_equal ["noreply@example.com"], mail.from
 +    assert_match user.reset_token,        mail.body.encoded
 +    assert_match CGI.escape(user.email),  mail.body.encoded
+```
+
+### test/mailers/previews/user_mailer_preview.rb
+
+#### 🎯 概要
+パスワードリセット機能のメールプレビューメソッドが更新されました。開発環境でメールの外観を確認できます。
+
+#### 🧠 解説
+UserMailerPreviewクラスのpassword_resetメソッドが実際に機能するよう更新されました。
+
+**更新されたメソッドの詳細**：
+- **ユーザー取得**: `User.first` で既存ユーザーを使用
+- **トークン生成**: `User.new_token` で実際のリセットトークンを生成
+- **メイラー呼び出し**: `UserMailer.password_reset(user)` で正しいパラメータを渡す
+
+**プレビュー機能の価値**：
+- **開発効率**: 実際にメール送信せずに外観確認
+- **デザイン確認**: パスワードリセットメールのレイアウト検証
+- **リンク検証**: 生成されるURLの正確性確認
+- **両形式対応**: HTMLとテキスト両方の表示確認
+
+**プレビューURL**：
+```
+開発サーバー起動時のアクセス先：
+http://localhost:3000/rails/mailers/user_mailer/password_reset
+```
+
+```diff
+@@
+   # Preview this email at
+   # http://localhost:3000/rails/mailers/user_mailer/password_reset
+   def password_reset
+-    UserMailer.password_reset
++    user = User.first
++    user.reset_token = User.new_token
++    UserMailer.password_reset(user)
+   end
+ end
 ```
 
 ### test/integration/password_resets_test.rb
