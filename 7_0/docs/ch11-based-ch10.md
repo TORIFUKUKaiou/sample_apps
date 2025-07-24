@@ -346,7 +346,7 @@ end
 ### app/views/user_mailer/account_activation.html.erb
 
 #### 🎯 概要
-メール本文に有効化リンクを配置しています。テキストメール版も同様です。
+メール本文に有効化リンクを配置しています。HTML形式のメールテンプレートです。
 
 #### 🧠 解説
 アカウント有効化メールのHTMLテンプレートを実装しました。
@@ -370,6 +370,32 @@ edit_account_activation_url(@user.activation_token, email: @user.email)
 ```erb
 <%= link_to "Activate", edit_account_activation_url(@user.activation_token,
                                                     email: @user.email) %>
+```
+
+### app/views/user_mailer/account_activation.text.erb
+
+#### 🎯 概要
+HTML版に対応するテキスト形式のメールテンプレートです。メールクライアントの互換性確保のために必要です。
+
+#### 🧠 解説
+シンプルなテキスト形式でアカウント有効化メールを実装しました。
+
+**テキストメールの重要性**：
+- **互換性**: 古いメールクライアントやテキスト専用設定への対応
+- **アクセシビリティ**: スクリーンリーダーや視覚障害者への配慮
+- **セキュリティ**: 企業環境でHTMLメールが無効化されている場合への対応
+
+**設計のポイント**：
+- **明確な説明**: HTMLリンクがないため、URLの目的を明確に説明
+- **コピー&ペースト対応**: URLを手動でコピーできる形式
+- **簡潔性**: 必要最小限の情報でユーザーの混乱を避ける
+
+```erb
+Hi <%= @user.name %>,
+
+Welcome to the Sample App! Click on the link below to activate your account:
+
+<%= edit_account_activation_url(@user.activation_token, email: @user.email) %>
 ```
 
 ### config/environments/development.rb
@@ -661,6 +687,59 @@ fixture データにも `activated` 属性を追加しています。
 +    assert_equal 1, ActionMailer::Base.deliveries.size
 ```
 さらに、無効なトークンやメールの場合にログインできないこと、正しいリンクなら有効化されることを細かく検証しています。
+
+### test/mailers/previews/user_mailer_preview.rb
+
+#### 🎯 概要
+開発環境でメールの外観を確認するためのプレビュー機能です。ブラウザ上でメールの見た目を事前確認できます。
+
+#### 🧠 解説
+Rails標準のメールプレビュー機能を実装し、開発効率を大幅に向上させました。
+
+**メールプレビューの価値**：
+- **開発効率**: 実際にメール送信せずに外観確認
+- **デザイン確認**: レイアウト、色、フォントなどの視覚的検証
+- **レスポンシブ確認**: 各種メールクライアントでの表示確認
+- **プロダクション前検証**: 本番環境デプロイ前の安全な確認
+
+**プレビューURL**：
+```
+開発サーバー起動時のアクセス先：
+http://localhost:3000/rails/mailers/user_mailer
+http://localhost:3000/rails/mailers/user_mailer/account_activation
+```
+
+**実装のポイント**：
+- **テストデータ**: `User.first` で既存ユーザーを利用
+- **トークン生成**: `User.new_token` で実際のトークン生成をシミュレート
+- **環境分離**: 開発環境専用機能でプロダクションに影響なし
+
+**開発ワークフローへの統合**：
+1. **メールテンプレート作成**
+2. **プレビューでの確認** ← この機能
+3. **修正・調整**
+4. **再プレビュー**
+5. **実装完了**
+
+```ruby
+# Preview all emails at http://localhost:3000/rails/mailers/user_mailer
+class UserMailerPreview < ActionMailer::Preview
+
+  # Preview this email at
+  # http://localhost:3000/rails/mailers/user_mailer/account_activation
+  def account_activation
+    user = User.first
+    user.activation_token = User.new_token
+    UserMailer.account_activation(user)
+  end
+
+  # Preview this email at
+  # http://localhost:3000/rails/mailers/user_mailer/password_reset
+  def password_reset
+    UserMailer.password_reset
+  end
+end
+```
 
 ### test/mailers/user_mailer_test.rb
 
