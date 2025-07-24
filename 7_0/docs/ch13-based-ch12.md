@@ -468,6 +468,114 @@ RESTfulなマイクロポストルーティングを追加し、適切なアク�
 +    <% object.errors.full_messages.each do |msg| %>
 ```
 
+### app/views/microposts/_micropost.html.erb
+
+#### 🎯 概要
+個別のマイクロポスト表示用の部分テンプレートです。フィードやプロフィールページで使用されます。
+
+#### 🧠 解説
+単一のマイクロポストを表示するための専用パーシャルです。ユーザー情報、投稿内容、画像、削除機能を統合しています。
+
+**表示要素の構成**：
+- **ユーザー情報**: Gravatarとユーザー名のリンク
+- **投稿内容**: テキストと添付画像の表示
+- **タイムスタンプ**: 投稿時間の人間らしい表現
+- **削除機能**: 投稿者のみに表示される削除リンク
+
+**UX設計のポイント**：
+- **視覚的階層**: ユーザー → 内容 → 時間・操作の順序
+- **条件分岐**: 画像がある場合のみ表示
+- **権限制御**: `current_user?` で削除権限をチェック
+
+**セキュリティ考慮**：
+- **Turbo確認**: 削除時の確認ダイアログ
+- **適切なHTTPメソッド**: `data: { "turbo-method": :delete }`
+- **権限チェック**: 投稿者本人のみ削除可能
+
+```erb
+<li id="micropost-<%= micropost.id %>">
+  <%= link_to gravatar_for(micropost.user, size: 50), micropost.user %>
+  <span class="user"><%= link_to micropost.user.name, micropost.user %></span>
+  <span class="content">
+    <%= micropost.content %>
+    <% if micropost.image.attached? %>
+      <%= image_tag micropost.image.variant(:display) %>
+    <% end %>
+  </span>
+  <span class="timestamp">
+    Posted <%= time_ago_in_words(micropost.created_at) %> ago.
+    <% if current_user?(micropost.user) %>
+      <%= link_to "delete", micropost, data: { "turbo-method": :delete,
+                                               turbo_confirm: "You sure?" } %>
+    <% end %>
+  </span>
+</li>
+```
+
+### app/views/shared/_feed.html.erb
+
+#### 🎯 概要
+フィード表示用の部分テンプレートです。ホームページでマイクロポスト一覧を表示します。
+
+#### 🧠 解説
+ユーザーのフィードを表示する専用パーシャルです。ページネーション機能と統合し、効率的な大量データ表示を実現しています。
+
+**機能的特徴**：
+- **条件分岐**: `@feed_items.any?` で投稿がある場合のみ表示
+- **順序リスト**: `<ol>` で投稿の時系列順序を明示
+- **パーシャル活用**: `render @feed_items` で効率的な一括表示
+- **ページネーション**: 特別なパラメータ付きでホームページ対応
+
+**パフォーマンス最適化**：
+- **遅延読み込み**: ページごとの分割表示
+- **効率的レンダリング**: Railsの自動パーシャル選択機能活用
+- **適切なパラメータ**: `controller: :static_pages, action: :home`
+
+**UX配慮**：
+- **空状態対応**: 投稿がない場合は何も表示しない
+- **ナビゲーション**: ページング機能で快適な閲覧体験
+
+```erb
+<% if @feed_items.any? %>
+  <ol class="microposts">
+    <%= render @feed_items %>
+  </ol>
+  <%= will_paginate @feed_items,
+                    params: { controller: :static_pages, action: :home } %>
+<% end %>
+```
+
+### app/views/shared/_user_info.html.erb
+
+#### 🎯 概要
+ログインユーザーの基本情報表示用の部分テンプレートです。ホームページのサイドバーで使用されます。
+
+#### 🧠 解説
+ホームページにユーザーの簡潔な情報を表示する専用パーシャルです。プロフィールへの導線と投稿統計を提供します。
+
+**表示情報の構成**：
+- **プロフィール画像**: Gravatar（50pxサイズ）でユーザーページへリンク
+- **ユーザー名**: `<h1>` でメインの識別情報として表示
+- **プロフィールリンク**: "view my profile" で詳細ページへ誘導
+- **投稿統計**: `pluralize` で投稿数を適切な単数/複数形で表示
+
+**UX設計の工夫**：
+- **視覚的ヒエラルキー**: 画像 → 名前 → リンク → 統計の順序
+- **適切なリンク**: 画像とテキストの両方からプロフィールアクセス可能
+- **統計の可視化**: 投稿数でユーザーの活動レベルを表示
+
+**機能的価値**：
+- **アイデンティティ確認**: 現在ログイン中のユーザーを明確化
+- **行動促進**: プロフィール閲覧への自然な誘導
+- **活動可視化**: 投稿数による達成感の提供
+
+```erb
+<%= link_to gravatar_for(current_user, size: 50), current_user %>
+<h1><%= current_user.name %></h1>
+<span><%= link_to "view my profile", current_user %></span>
+<span><%= pluralize(current_user.microposts.count, "micropost") %></span>
+```
+
 ### app/views/shared/_micropost_form.html.erb
 
 #### 🎯 概要
@@ -573,6 +681,68 @@ document.addEventListener("turbo:load", function() {
 });
 ```
 
+### db/migrate/20231219022307_create_microposts.rb
+
+#### 🎯 概要
+マイクロポストテーブルを作成するマイグレーションファイルです。
+
+#### 🧠 解説
+マイクロポスト機能の基盤となるデータベーステーブルを定義します。ユーザーとの関連付けと効率的な検索のためのインデックスを設定しています。
+
+**テーブル設計のポイント**：
+- **`content` カラム**: `:text` 型で長文投稿に対応
+- **`user_id` カラム**: 外部キー制約付きでデータ整合性を確保
+- **`timestamps`**: 作成・更新時間の自動管理
+
+**パフォーマンス最適化**：
+- **複合インデックス**: `[:user_id, :created_at]` で効率的なフィード取得
+- **外部キー制約**: `foreign_key: true` でデータ整合性を保証
+- **`null: false`**: 必須フィールドの明示的指定
+
+**設計思想**：
+- **拡張性**: 将来的な機能追加に対応可能な柔軟な構造
+- **整合性**: リレーショナルDBの制約を活用した堅牢性
+- **効率性**: よく使用されるクエリパターンを想定したインデックス設計
+
+```ruby
+class CreateMicroposts < ActiveRecord::Migration[7.0]
+  def change
+    create_table :microposts do |t|
+      t.text :content
+      t.references :user, null: false, foreign_key: true
+
+      t.timestamps
+    end
+    add_index :microposts, [:user_id, :created_at]
+  end
+end
+```
+
+### db/migrate/20231219032225_create_active_storage_tables.active_storage.rb
+
+#### 🎯 概要
+Active Storage用のテーブルを作成するマイグレーションファイルです。画像アップロード機能の基盤となります。
+
+#### 🧠 解説
+Rails標準のActive Storageライブラリが自動生成するマイグレーションです。ファイルアップロード機能に必要なテーブル群を作成します。
+
+**作成されるテーブル**：
+- **`active_storage_blobs`**: ファイルのメタデータ保存
+- **`active_storage_attachments`**: モデルとファイルの関連付け
+- **`active_storage_variant_records`**: 画像変換結果のキャッシュ
+
+**Active Storageの利点**：
+- **ストレージ抽象化**: ローカル、S3、GCSなど統一インターフェース
+- **バリアント機能**: 画像リサイズの自動化
+- **メタデータ管理**: ファイル名、MIME型、サイズの自動記録
+
+**本プロジェクトでの活用**：
+- **マイクロポスト画像**: ユーザーが投稿に画像を添付
+- **プロフィール拡張**: 将来的なプロフィール画像機能への準備
+- **スケーラビリティ**: クラウドストレージとの連携対応
+
+*注：このファイルはRails標準生成のため、具体的なコード内容の記載は省略*
+
 ### db/seeds.rb
 
 初期データとして各ユーザーに複数のマイクロポストを生成します。
@@ -588,6 +758,313 @@ document.addEventListener("turbo:load", function() {
 +  content = Faker::Lorem.sentence(word_count: 5)
 +  users.each { |user| user.microposts.create!(content: content) }
 +end
+```
+
+### test/integration/microposts_interface_test.rb
+
+#### 🎯 概要
+マイクロポスト機能の統合テストです。投稿作成、削除、ページネーション機能を包括的にテストします。
+
+#### 🧠 解説
+ユーザーの視点からマイクロポスト機能を検証する統合テストです。実際のWebアプリケーションの動作を模擬した包括的なテストケースを提供します。
+
+**テストクラスの構造**：
+- **`MicropostsInterface`**: 共通セットアップ（基底クラス）
+- **`MicropostsInterfaceTest`**: 具体的なテストケース
+
+**検証項目の詳細**：
+1. **ページネーション機能**: `should paginate microposts`
+2. **無効投稿の処理**: `should show errors but not create micropost on invalid submission`
+3. **有効投稿の作成**: `should create a micropost on valid submission`
+4. **削除権限の確認**: `should have micropost delete links on own profile page`
+5. **削除機能**: `should be able to delete own micropost`
+6. **他人投稿の保護**: `should not have delete links on other user's profile page`
+
+**テストの価値**：
+- **ユーザー体験の保証**: 実際の操作フローを検証
+- **セキュリティチェック**: 権限制御の動作確認
+- **回帰テスト**: 機能変更時の安全性確保
+
+```ruby
+require "test_helper"
+
+class MicropostsInterface < ActionDispatch::IntegrationTest
+  def setup
+    @user = users(:michael)
+    log_in_as(@user)
+  end
+end
+
+class MicropostsInterfaceTest < MicropostsInterface
+  test "should paginate microposts" do
+    get root_path
+    assert_select 'div.pagination'
+  end
+
+  test "should show errors but not create micropost on invalid submission" do
+    assert_no_difference 'Micropost.count' do
+      post microposts_path, params: { micropost: { content: "" } }
+    end
+    assert_select 'div#error_explanation'
+    assert_select 'a[href=?]', '/?page=2'  # 正しいページネーションリンク
+  end
+
+  test "should create a micropost on valid submission" do
+    content = "This micropost really ties the room together"
+    assert_difference 'Micropost.count', 1 do
+      post microposts_path, params: { micropost: { content: content } }
+    end
+    assert_redirected_to root_url
+    follow_redirect!
+    assert_match content, response.body
+  end
+
+  test "should have micropost delete links on own profile page" do
+    get user_path(@user)
+    assert_select 'a', text: 'delete'
+  end
+
+  test "should be able to delete own micropost" do
+    first_micropost = @user.microposts.paginate(page: 1).first
+    assert_difference 'Micropost.count', -1 do
+      delete micropost_path(first_micropost)
+    end
+  end
+
+  test "should not have delete links on other user's profile page" do
+    get user_path(users(:archer))
+    assert_select 'a', { text: 'delete', count: 0 }
+  end
+end
+```
+
+### test/integration/users_profile_test.rb
+
+#### 🎯 概要
+ユーザープロフィールページの統合テストです。マイクロポスト表示機能を含む包括的な検証を行います。
+
+#### 🧠 解説
+ユーザープロフィールページの表示内容と機能を検証する統合テストです。マイクロポスト機能追加後の表示確認を行います。
+
+**テスト対象の機能**：
+- **ページテンプレート**: 正しいビューが表示されるか
+- **ページタイトル**: `full_title` ヘルパーの動作確認
+- **ユーザー情報**: 名前とGravatarの表示
+- **投稿統計**: マイクロポスト数の表示
+- **ページネーション**: 大量投稿への対応
+- **投稿内容**: 個別投稿の表示確認
+
+**テストの設計思想**：
+- **視覚的要素の検証**: CSSセレクタによる詳細チェック
+- **コンテンツの確認**: 投稿内容の表示検証
+- **統計情報の正確性**: カウント機能の動作確認
+
+**実用的価値**：
+- **UI/UXの品質保証**: ユーザーが見る画面の正確性
+- **機能統合の確認**: 複数機能の連携動作検証
+- **パフォーマンステスト**: ページネーション機能の確認
+
+```ruby
+require "test_helper"
+
+class UsersProfileTest < ActionDispatch::IntegrationTest
+  include ApplicationHelper
+
+  def setup
+    @user = users(:michael)
+  end
+
+  test "profile display" do
+    get user_path(@user)
+    assert_template 'users/show'
+    assert_select 'title', full_title(@user.name)
+    assert_select 'h1', text: @user.name
+    assert_select 'h1>img.gravatar'
+    assert_match @user.microposts.count.to_s, response.body
+    assert_select 'div.pagination'
+    @user.microposts.paginate(page: 1).each do |micropost|
+      assert_match micropost.content, response.body
+    end
+  end
+end
+```
+
+### test/models/micropost_test.rb
+
+#### 🎯 概要
+Micropostモデルの単体テストです。バリデーション、関連付け、並び順を検証します。
+
+#### 🧠 解説
+Micropostモデルのビジネスロジックを検証する単体テストです。データの整合性とモデルの動作を保証します。
+
+**テストケースの詳細**：
+1. **`should be valid`**: 正常なマイクロポストの検証
+2. **`user id should be present`**: ユーザーIDの必須性チェック
+3. **`content should be present`**: 投稿内容の必須性チェック
+4. **`content should be at most 140 characters`**: 文字数制限の確認
+5. **`order should be most recent first`**: デフォルトスコープの動作確認
+
+**テストの設計パターン**：
+- **セットアップ**: 各テストで使用する共通データの準備
+- **ポジティブテスト**: 正常系の動作確認
+- **ネガティブテスト**: 異常系の適切な処理確認
+- **境界値テスト**: 制限値での動作確認
+
+**モデルテストの重要性**：
+- **データ整合性**: バリデーションルールの確実な動作
+- **ビジネスルール**: アプリケーション固有の制約確認
+- **パフォーマンス**: デフォルトスコープの効果検証
+
+```ruby
+require "test_helper"
+
+class MicropostTest < ActiveSupport::TestCase
+  def setup
+    @user = users(:michael)
+    @micropost = @user.microposts.build(content: "Lorem ipsum")
+  end
+
+  test "should be valid" do
+    assert @micropost.valid?
+  end
+
+  test "user id should be present" do
+    @micropost.user_id = nil
+    assert_not @micropost.valid?
+  end
+
+  test "content should be present" do
+    @micropost.content = "   "
+    assert_not @micropost.valid?
+  end
+
+  test "content should be at most 140 characters" do
+    @micropost.content = "a" * 141
+    assert_not @micropost.valid?
+  end
+
+  test "order should be most recent first" do
+    assert_equal microposts(:most_recent), Micropost.first
+  end
+end
+```
+
+### test/controllers/microposts_controller_test.rb
+
+#### 🎯 概要
+MicropostsControllerの単体テストです。認証とアクセス制御を中心にテストします。
+
+#### 🧠 解説
+MicropostsControllerのセキュリティ機能を検証する単体テストです。未ログインユーザーや不正アクセスに対する適切な処理を確認します。
+
+**セキュリティテストの重点項目**：
+1. **`should redirect create when not logged in`**: 未ログイン時の投稿防止
+2. **`should redirect destroy when not logged in`**: 未ログイン時の削除防止
+3. **`should redirect destroy for wrong micropost`**: 他人投稿の削除防止
+
+**テストの設計思想**：
+- **認証チェック**: ログイン必須機能の保護確認
+- **権限チェック**: 投稿者以外の操作防止
+- **適切なリダイレクト**: セキュリティ違反時の処理確認
+
+**セキュリティテストの価値**：
+- **不正アクセス防止**: 攻撃パターンへの対策確認
+- **データ保護**: ユーザーデータの安全性保証
+- **システム堅牢性**: 予期しない操作への対処確認
+
+```ruby
+require "test_helper"
+
+class MicropostsControllerTest < ActionDispatch::IntegrationTest
+  def setup
+    @micropost = microposts(:orange)
+  end
+
+  test "should redirect create when not logged in" do
+    assert_no_difference 'Micropost.count' do
+      post microposts_path, params: { micropost: { content: "Lorem ipsum" } }
+    end
+    assert_redirected_to login_url
+  end
+
+  test "should redirect destroy when not logged in" do
+    assert_no_difference 'Micropost.count' do
+      delete micropost_path(@micropost)
+    end
+    assert_response :see_other
+    assert_redirected_to login_url
+  end
+
+  test "should redirect destroy for wrong micropost" do
+    log_in_as(users(:michael))
+    micropost = microposts(:ants)
+    assert_no_difference 'Micropost.count' do
+      delete micropost_path(micropost)
+    end
+    assert_response :see_other
+    assert_redirected_to root_url
+  end
+end
+```
+
+### test/fixtures/microposts.yml
+
+#### 🎯 概要
+マイクロポストのテストデータを定義するfixtureファイルです。
+
+#### 🧠 解説
+テストで使用するマイクロポストのサンプルデータを定義しています。様々なテストシナリオに対応できる多様なデータを提供します。
+
+**Fixtureデータの特徴**：
+- **リアルなコンテンツ**: 実際の投稿を模したテキスト
+- **時間の多様性**: 異なる投稿時間でソート機能テスト
+- **ユーザー関連付け**: 複数ユーザーの投稿データ
+- **境界値テスト**: `most_recent` で並び順テスト対応
+
+**データ設計のポイント**：
+- **`created_at`**: ERBで動的時間生成（並び順テスト用）
+- **`user` 関連付け**: ユーザーとの関係性定義
+- **多様なコンテンツ**: URLリンク、絵文字などの実例
+
+```yaml
+orange:
+  content: "I just ate an orange!"
+  created_at: <%= 10.minutes.ago %>
+  user: michael
+
+tau_manifesto:
+  content: "Check out the @tauday site by @mhartl: https://tauday.com"
+  created_at: <%= 3.years.ago %>
+  user: michael
+
+cat_video:
+  content: "Sad cats are sad: https://youtu.be/PKffm2uI4dk"
+  created_at: <%= 2.hours.ago %>
+  user: michael
+
+most_recent:
+  content: "Writing a short test"
+  created_at: <%= Time.zone.now %>
+  user: michael
+```
+
+### app/helpers/microposts_helper.rb
+
+#### 🎯 概要
+マイクロポスト用ヘルパーファイルです。現在は空ですが、将来的な拡張に備えて作成されています。
+
+#### 🧠 解説
+Railsの規約に従って自動生成されたヘルパーファイルです。現在は機能を持ちませんが、マイクロポスト関連のビューヘルパーメソッドを定義する場所として用意されています。
+
+**将来的な活用例**：
+- **投稿時間の表示**: `time_ago_in_words` のカスタマイズ
+- **コンテンツの整形**: リンクの自動生成、ハッシュタグ処理
+- **画像表示**: サムネイル生成、レスポンシブ対応
+- **投稿統計**: いいね数、コメント数などの表示
+
+```ruby
+module MicropostsHelper
+end
 ```
 
 ### config/environments/production.rb
